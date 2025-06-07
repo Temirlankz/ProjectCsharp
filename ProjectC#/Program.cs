@@ -6,7 +6,7 @@ namespace Chef
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Asd");
+            Console.WriteLine("ASD");
         }
     }
 }

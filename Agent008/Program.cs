@@ -6,7 +6,7 @@ namespace Agent008
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Asd");
+            Console.WriteLine("ASD");
         }
     }
 }
