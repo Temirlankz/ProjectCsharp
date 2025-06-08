@@ -15,7 +15,7 @@ namespace Agent008
 
         static void Main(string[] args)
         {
-            Console.WriteLine("Agent008 started.");
+            Console.WriteLine("Agent008 started. ");
 
             Console.Write("Path to txt files: ");
             string directoryPath = Console.ReadLine();
