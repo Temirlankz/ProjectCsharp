@@ -1,8 +1,10 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.IO;
 using System.IO.Pipes;
-using System.Threading;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace ProjectCSharp
 {
@@ -10,20 +12,27 @@ namespace ProjectCSharp
     {
         static ConcurrentDictionary<string, Dictionary<string, int>> mergedData = new();
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             Console.WriteLine("Master started");
 
-            Thread agent1Thread = new Thread(() => ListenToAgent("agent007"));
-            Thread agent2Thread = new Thread(() => ListenToAgent("agent008"));
+            //  Set CPU Affinity to Core 0
+            try
+            {
+                Process.GetCurrentProcess().ProcessorAffinity = (IntPtr)(1 << 0);
+                Console.WriteLine("Master running on CPU Core 1");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Affinity] Error: {ex.Message}");
+            }
 
-            agent1Thread.Start();
-            agent2Thread.Start();
+            var agent1 = Task.Run(() => ListenToAgentAsync("agent007"));
+            var agent2 = Task.Run(() => ListenToAgentAsync("agent008"));
 
-            agent1Thread.Join();
-            agent2Thread.Join();
+            await Task.WhenAll(agent1, agent2);
 
-            Console.WriteLine("\n Final count result \n");
+            Console.WriteLine("\n Final Merged Result \n");
             foreach (var fileEntry in mergedData)
             {
                 foreach (var wordEntry in fileEntry.Value)
@@ -32,19 +41,19 @@ namespace ProjectCSharp
                 }
             }
 
-            Console.WriteLine("\nFinished.");
+            Console.WriteLine("\n Finished");
         }
 
-        static void ListenToAgent(string pipeName)
+        static async Task ListenToAgentAsync(string pipeName)
         {
-            using var pipe = new NamedPipeServerStream(pipeName, PipeDirection.In);
+            using var pipe = new NamedPipeServerStream(pipeName, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
             Console.WriteLine($"Connecting {pipeName}");
-            pipe.WaitForConnection();
+            await pipe.WaitForConnectionAsync();
             Console.WriteLine($"{pipeName} connected");
 
             using var reader = new StreamReader(pipe);
             string? line;
-            while ((line = reader.ReadLine()) != null)
+            while ((line = await reader.ReadLineAsync()) != null)
             {
                 Console.WriteLine($"[{pipeName}] {line}");
                 ProcessLine(line);
