@@ -2,9 +2,10 @@
 using System.IO;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Collections.Concurrent;
 using System.IO.Pipes;
+using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace Agent007
 {
@@ -13,23 +14,37 @@ namespace Agent007
         static ConcurrentQueue<string> outputQueue = new ConcurrentQueue<string>();
         static bool readingDone = false;
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             Console.WriteLine("Agent007 started");
+
+            // Set CPU core
+            try
+            {
+                Process.GetCurrentProcess().ProcessorAffinity = (IntPtr)(1 << 1);
+                Console.WriteLine("Agent007 running on CPU Core 2");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Affinity] Error: {ex.Message}");
+            }
 
             Console.Write("Path to txt files: ");
             string directoryPath = Console.ReadLine();
 
-            Thread readerThread = new Thread(() => ReadAndProcessFiles(directoryPath));
-            Thread senderThread = new Thread(SendToMaster);
+            if (!Directory.Exists(directoryPath))
+            {
+                Console.WriteLine("Path not exist");
+                return;
+            }
 
-            readerThread.Start();
-            senderThread.Start();
+            // Run reading 
+            await Task.WhenAll(
+                Task.Run(() => ReadAndProcessFiles(directoryPath)),
+                Task.Run(() => SendToMaster())
+            );
 
-            readerThread.Join();
-            senderThread.Join();
-
-            Console.WriteLine("Agent007 finished");
+            Console.WriteLine("Agent007 finished.");
         }
 
         static void ReadAndProcessFiles(string directoryPath)
@@ -53,30 +68,27 @@ namespace Agent007
 
         static void SendToMaster()
         {
-            using (var pipe = new NamedPipeClientStream(".", "agent007", PipeDirection.Out))
+            using var pipe = new NamedPipeClientStream(".", "agent007", PipeDirection.Out);
+            pipe.Connect();
+
+            using var writer = new StreamWriter(pipe) { AutoFlush = true };
+
+            while (!readingDone || !outputQueue.IsEmpty)
             {
-                pipe.Connect();
-                using (StreamWriter writer = new StreamWriter(pipe))
+                if (outputQueue.TryDequeue(out string data))
                 {
-                    writer.AutoFlush = true;
-                    while (!readingDone || !outputQueue.IsEmpty)
-                    {
-                        if (outputQueue.TryDequeue(out string data))
-                        {
-                            writer.WriteLine(data);
-                        }
-                        else
-                        {
-                            Thread.Sleep(50);
-                        }
-                    }
+                    writer.WriteLine(data);
+                }
+                else
+                {
+                    Task.Delay(50).Wait();
                 }
             }
         }
 
         static Dictionary<string, int> CountWords(string text)
         {
-            Dictionary<string, int> wordCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, int> wordCounts = new(StringComparer.OrdinalIgnoreCase);
             string[] words = Regex.Split(text, @"\W+");
 
             foreach (string word in words)
