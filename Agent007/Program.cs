@@ -53,7 +53,7 @@ namespace Agent007
 
         static void SendToMaster()
         {
-            using (var pipe = new NamedPipeClientStream(".", "pipe_agent007", PipeDirection.Out))
+            using (var pipe = new NamedPipeClientStream(".", "agent007", PipeDirection.Out))
             {
                 pipe.Connect();
                 using (StreamWriter writer = new StreamWriter(pipe))
