@@ -2,11 +2,16 @@
 using System.IO;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Collections.Concurrent;
 
 namespace Agent007
 {
     class Program
     {
+        static ConcurrentQueue<string> outputQueue = new ConcurrentQueue<string>();
+        static bool readingDone = false;
+
         static void Main(string[] args)
         {
             Console.WriteLine("Agent007 started.");
@@ -20,24 +25,48 @@ namespace Agent007
                 return;
             }
 
-            string[] files = Directory.GetFiles(directoryPath, "*.txt");
+            Thread readerThread = new Thread(() => ReadAndProcessFiles(directoryPath));
+            Thread writerThread = new Thread(PrintResults);
 
-            if (files.Length == 0)
-            {
-                Console.WriteLine("No txt files");
-                return;
-            }
+            readerThread.Start();
+            writerThread.Start();
+
+            readerThread.Join();
+            writerThread.Join();
+
+            Console.WriteLine("Agent007 finished.");
+        }
+
+        static void ReadAndProcessFiles(string directoryPath)
+        {
+            string[] files = Directory.GetFiles(directoryPath, "*.txt");
 
             foreach (string file in files)
             {
-                Console.WriteLine($"\nReading file: {Path.GetFileName(file)}");
                 string text = File.ReadAllText(file);
-
-                Dictionary<string, int> wordCounts = CountWords(text);
+                var wordCounts = CountWords(text);
 
                 foreach (var pair in wordCounts)
                 {
-                    Console.WriteLine($"{Path.GetFileName(file)}: {pair.Key} = {pair.Value}");
+                    string output = $"{Path.GetFileName(file)}: {pair.Key} = {pair.Value}";
+                    outputQueue.Enqueue(output);
+                }
+            }
+
+            readingDone = true;
+        }
+
+        static void PrintResults()
+        {
+            while (!readingDone || !outputQueue.IsEmpty)
+            {
+                if (outputQueue.TryDequeue(out string result))
+                {
+                    Console.WriteLine(result);
+                }
+                else
+                {
+                    Thread.Sleep(50); 
                 }
             }
         }
@@ -45,8 +74,7 @@ namespace Agent007
         static Dictionary<string, int> CountWords(string text)
         {
             Dictionary<string, int> wordCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-            string[] words = Regex.Split(text, @"\W+"); 
+            string[] words = Regex.Split(text, @"\W+");
 
             foreach (string word in words)
             {
