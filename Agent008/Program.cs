@@ -15,7 +15,7 @@ namespace Agent008
 
         static void Main(string[] args)
         {
-            Console.WriteLine("Agent008 started. ");
+            Console.WriteLine("Agent008 started");
 
             Console.Write("Path to txt files: ");
             string directoryPath = Console.ReadLine();
@@ -29,7 +29,7 @@ namespace Agent008
             readerThread.Join();
             senderThread.Join();
 
-            Console.WriteLine("Agent008 finished.");
+            Console.WriteLine("Agent008 finished");
         }
 
         static void ReadAndProcessFiles(string directoryPath)
