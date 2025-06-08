@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Collections.Concurrent;
+using System.IO.Pipes;
 
 namespace Agent007
 {
@@ -19,20 +20,14 @@ namespace Agent007
             Console.Write("Path to txt files: ");
             string directoryPath = Console.ReadLine();
 
-            if (!Directory.Exists(directoryPath))
-            {
-                Console.WriteLine("Path do not exist.");
-                return;
-            }
-
             Thread readerThread = new Thread(() => ReadAndProcessFiles(directoryPath));
-            Thread writerThread = new Thread(PrintResults);
+            Thread senderThread = new Thread(SendToMaster);
 
             readerThread.Start();
-            writerThread.Start();
+            senderThread.Start();
 
             readerThread.Join();
-            writerThread.Join();
+            senderThread.Join();
 
             Console.WriteLine("Agent007 finished.");
         }
@@ -48,7 +43,7 @@ namespace Agent007
 
                 foreach (var pair in wordCounts)
                 {
-                    string output = $"{Path.GetFileName(file)}: {pair.Key} = {pair.Value}";
+                    string output = $"{Path.GetFileName(file)}:{pair.Key}:{pair.Value}";
                     outputQueue.Enqueue(output);
                 }
             }
@@ -56,17 +51,25 @@ namespace Agent007
             readingDone = true;
         }
 
-        static void PrintResults()
+        static void SendToMaster()
         {
-            while (!readingDone || !outputQueue.IsEmpty)
+            using (var pipe = new NamedPipeClientStream(".", "pipe_agent007", PipeDirection.Out))
             {
-                if (outputQueue.TryDequeue(out string result))
+                pipe.Connect();
+                using (StreamWriter writer = new StreamWriter(pipe))
                 {
-                    Console.WriteLine(result);
-                }
-                else
-                {
-                    Thread.Sleep(50); 
+                    writer.AutoFlush = true;
+                    while (!readingDone || !outputQueue.IsEmpty)
+                    {
+                        if (outputQueue.TryDequeue(out string data))
+                        {
+                            writer.WriteLine(data);
+                        }
+                        else
+                        {
+                            Thread.Sleep(50);
+                        }
+                    }
                 }
             }
         }
@@ -79,7 +82,6 @@ namespace Agent007
             foreach (string word in words)
             {
                 if (string.IsNullOrWhiteSpace(word)) continue;
-
                 if (wordCounts.ContainsKey(word))
                     wordCounts[word]++;
                 else
