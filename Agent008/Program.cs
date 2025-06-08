@@ -34,7 +34,7 @@ namespace Agent008
 
             if (!Directory.Exists(directoryPath))
             {
-                Console.WriteLine("Path not exist");
+                Console.WriteLine("Path no exist");
                 return;
             }
 

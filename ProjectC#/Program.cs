@@ -32,7 +32,7 @@ namespace ProjectCSharp
 
             await Task.WhenAll(agent1, agent2);
 
-            Console.WriteLine("\n Final Merged Result \n");
+            Console.WriteLine("\n Final count result \n");
             foreach (var fileEntry in mergedData)
             {
                 foreach (var wordEntry in fileEntry.Value)

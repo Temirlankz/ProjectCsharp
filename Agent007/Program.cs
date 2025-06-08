@@ -44,7 +44,7 @@ namespace Agent007
                 Task.Run(() => SendToMaster())
             );
 
-            Console.WriteLine("Agent007 finished.");
+            Console.WriteLine("Agent007 finished");
         }
 
         static void ReadAndProcessFiles(string directoryPath)
